@@ -13,6 +13,11 @@ namespace SerialComm
 {
     public partial class Form1 : Form
     {
+        char[] RXbuffer;
+        byte[] intToBCD = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 };
+        double speed = 0;
+        int step = 0;
+
         public Form1()
         {
             InitializeComponent();
@@ -89,7 +94,36 @@ namespace SerialComm
             if (serialPort1.BytesToRead != 0)
             try
             {
-                textBox2.AppendText(serialPort1.ReadLine());
+                    int temp = serialPort1.ReadByte();
+                    if (temp == 60) step = 1;
+                    else
+                    {
+                        switch (step)
+                        {
+                            case 1:
+                                if (Convert.ToBoolean(temp & 0x01)) {
+                                    step++;
+                                    speed = 0;
+                                } 
+                                break;
+                            case 2:
+                                speed += temp;
+                                step++;
+                                break;
+                            case 3:
+                                speed += 0.1 * Convert.ToDouble((temp & 0x00F0) >> 4);
+                                speed += 0.01 * Convert.ToDouble(temp & 0x000F);
+                                step++;
+                                break;
+                            case 4:
+                                if (temp == 62)
+                                    textBox3.Text = Convert.ToString(speed);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    textBox2.Text += Convert.ToChar(temp);
             }
             catch (TimeoutException)
             {
