@@ -13,17 +13,17 @@ namespace SerialComm
 {
     public partial class Form1 : Form
     {
-        char[] RXbuffer;
-        byte[] intToBCD = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 };
-        double speed = 0;
-        int step = 0;
-
+        private int step = 0;
+        private int dataIndex = 0;
+        private double[] dataArray = {0,0,0,0,0};
         public Form1()
         {
             InitializeComponent();
             getAvailablePorts();
         }
-        void getAvailablePorts()
+        
+
+        private void getAvailablePorts()
         {
             String[] ports = SerialPort.GetPortNames();
             comboBox1.Items.AddRange(ports);
@@ -94,36 +94,65 @@ namespace SerialComm
             if (serialPort1.BytesToRead != 0)
             try
             {
-                    int temp = serialPort1.ReadByte();
-                    if (temp == 60) step = 1;
+                    int readByte = serialPort1.ReadByte();
+                    //prvi bajt je '<' i pocinje citanje narednih
+                    if (readByte == 60 && step == 0) step = 1;
                     else
                     {
                         switch (step)
                         {
                             case 1:
-                                if (Convert.ToBoolean(temp & 0x01)) {
+                                int id = readByte & 0x0000000F;
+                                if (id == 0x00) {
                                     step++;
-                                    speed = 0;
-                                } 
+                                    dataIndex = 0;
+                                }
+                                else if (id == 0x01) {
+                                    step++;
+                                    dataIndex = 1;
+                                } else if (id == 0x02)
+                                {
+                                    step++;
+                                    dataIndex = 2;
+                                }
+                                dataArray[dataIndex] = 0;
                                 break;
                             case 2:
-                                speed += temp;
+                                dataArray[dataIndex] += readByte;
                                 step++;
                                 break;
                             case 3:
-                                speed += 0.1 * Convert.ToDouble((temp & 0x00F0) >> 4);
-                                speed += 0.01 * Convert.ToDouble(temp & 0x000F);
+                                dataArray[dataIndex] += 0.1 * Convert.ToDouble((readByte & 0x00F0) >> 4);
+                                dataArray[dataIndex] += 0.01 * Convert.ToDouble(readByte & 0x000F);
                                 step++;
                                 break;
                             case 4:
-                                if (temp == 62)
-                                    textBox3.Text = Convert.ToString(speed);
+                                if (readByte == 62){
+                                    switch (dataIndex) {
+                                        case 0:
+                                            textBox3.Text = Convert.ToString(dataArray[dataIndex]);
+                                            break;
+                                        case 1:
+                                            textBox4.Text = Convert.ToString(dataArray[dataIndex]);
+                                            break;
+                                        case 2:
+                                            textBox5.Text = Convert.ToString(dataArray[dataIndex]);
+                                            break;
+                                        case 3:
+                                            break;
+                                        case 4:
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                    step = 0;
+                                }
                                 break;
                             default:
                                 break;
                         }
                     }
-                    textBox2.Text += Convert.ToChar(temp);
+                    textBox2.Text += Convert.ToChar(readByte);
             }
             catch (TimeoutException)
             {
